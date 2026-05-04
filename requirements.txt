@@ -1,0 +1,11 @@
+torch
+transformers
+peft
+datasets
+accelerate
+sentencepiece
+numpy
+scikit-learn
+sacrebleu
+rouge-score
+tqdm

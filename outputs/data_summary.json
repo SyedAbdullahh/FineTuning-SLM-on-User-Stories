@@ -1,0 +1,7 @@
+{
+  "source_dataset": "user_story_dataset.json",
+  "train_samples": 400,
+  "validation_samples": 50,
+  "test_samples": 50,
+  "prompt_format": "<|system|> / <|user|> / <|assistant|>"
+}
