@@ -4,7 +4,10 @@ import argparse
 from dataclasses import asdict
 from pathlib import Path
 
-import torch
+try:
+    import torch
+except Exception:  # pragma: no cover - allow environments without torch for dry-run
+    torch = None
 from datasets import load_dataset
 from peft import LoraConfig, TaskType, get_peft_model
 from transformers import (
@@ -39,6 +42,10 @@ def load_model_and_tokenizer(model_name: str):
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
+
+    # If torch is unavailable or a dry-run is requested, skip loading the model
+    if torch is None:
+        return None, tokenizer
 
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
