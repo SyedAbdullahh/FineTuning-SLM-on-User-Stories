@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 from pathlib import Path
 
 try:
@@ -13,7 +12,6 @@ from peft import LoraConfig, TaskType, get_peft_model
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    DataCollatorWithPadding,
     Trainer,
     TrainingArguments,
 )
@@ -22,7 +20,25 @@ from .config import CONFIG, ensure_output_dir
 
 
 def tokenize_batch(batch, tokenizer, max_length: int):
-    return tokenizer(batch["text"], truncation=True, max_length=max_length)
+    input_ids_list = []
+    attention_masks = []
+    labels_list = []
+
+    eos_token = tokenizer.eos_token or ""
+
+    for prompt, completion in zip(batch["prompt"], batch["output"]):
+        prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+        completion_text = completion + eos_token
+        completion_ids = tokenizer.encode(completion_text, add_special_tokens=False)
+
+        input_ids = (prompt_ids + completion_ids)[:max_length]
+        labels = ([-100] * len(prompt_ids) + completion_ids)[:max_length]
+
+        input_ids_list.append(input_ids)
+        attention_masks.append([1] * len(input_ids))
+        labels_list.append(labels)
+
+    return {"input_ids": input_ids_list, "attention_mask": attention_masks, "labels": labels_list}
 
 
 class CausalLMCollator:
@@ -30,10 +46,18 @@ class CausalLMCollator:
         self.tokenizer = tokenizer
 
     def __call__(self, features):
-        batch = self.tokenizer.pad(features, return_tensors="pt")
-        labels = batch["input_ids"].clone()
-        labels[batch["attention_mask"] == 0] = -100
-        batch["labels"] = labels
+        input_features = [{"input_ids": f["input_ids"], "attention_mask": f["attention_mask"]} for f in features]
+        batch = self.tokenizer.pad(input_features, return_tensors="pt")
+
+        max_len = batch["input_ids"].shape[1]
+        padded_labels = []
+        for feature in features:
+            labels = feature["labels"][:max_len]
+            if len(labels) < max_len:
+                labels = labels + [-100] * (max_len - len(labels))
+            padded_labels.append(labels)
+
+        batch["labels"] = torch.tensor(padded_labels, dtype=torch.long)
         return batch
 
 
@@ -125,8 +149,9 @@ def main() -> None:
         warmup_ratio=0.05,
         logging_steps=10,
         save_strategy="epoch",
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",
         report_to="none",
+        save_total_limit=2,
         fp16=torch.cuda.is_available(),
         bf16=False,
         load_best_model_at_end=True,
@@ -137,7 +162,6 @@ def main() -> None:
         args=training_args,
         train_dataset=tokenized["train"],
         eval_dataset=tokenized["validation"],
-        tokenizer=tokenizer,
         data_collator=CausalLMCollator(tokenizer),
     )
 
