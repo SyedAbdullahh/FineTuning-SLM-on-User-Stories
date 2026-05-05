@@ -58,6 +58,16 @@ Run the evaluation script to produce a metrics report and sample comparisons.
 python -m src.evaluate --test-file outputs/test.jsonl --output-file outputs/evaluation_report.json
 ```
 
+### Generate baseline vs fine-tuned samples
+
+Create a JSONL with side-by-side generations to show differences:
+
+```bash
+PYTHONPATH=. python scripts/generate_comparisons.py --test-file outputs/test.jsonl --output-file outputs/comparisons.jsonl --limit 50
+```
+
+Open `outputs/comparisons.jsonl` to inspect baseline vs fine-tuned outputs.
+
 ### 4) Interactive CLI
 
 After fine-tuning, start an interactive prompt loop:
