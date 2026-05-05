@@ -36,13 +36,35 @@ The model can be changed through environment variables or script arguments.
 
 Run the preprocessing script to create JSONL splits in `outputs/`.
 
+```bash
+python -m src.data_prep --dataset user_story_dataset.json --output-dir outputs
+```
+
 ### 2) Train
 
-Run the LoRA training script after the splits are ready. A lightweight `--dry-run` mode is available to validate tokenization and dataset sizing without downloading models.
+Run the full fine-tuning wrapper. It preprocesses the dataset and then starts LoRA training.
+
+```bash
+python scripts/finetune_qwen_lora.py --dataset user_story_dataset.json --output-dir outputs/lora_model
+```
+
+The training setup masks prompt tokens and learns only from the user-story completion, which is the intended supervised fine-tuning behavior.
 
 ### 3) Evaluate
 
 Run the evaluation script to produce a metrics report and sample comparisons.
+
+```bash
+python -m src.evaluate --test-file outputs/test.jsonl --output-file outputs/evaluation_report.json
+```
+
+### 4) Interactive CLI
+
+After fine-tuning, start an interactive prompt loop:
+
+```bash
+python scripts/chat_qwen_cli.py --adapter-path outputs/lora_model
+```
 
 ### Quick dry-run
 
@@ -59,3 +81,5 @@ For full training and evaluation, run the Python modules directly and omit `--dr
 - The scripts are written to be configurable and lightweight.
 - The evaluation stage includes format compliance checks and overlap-based metrics.
 - The training script is designed for Hugging Face Transformers + PEFT.
+- For full training, install dependencies from `requirements.txt` first.
+- The fine-tuning wrapper validates the dataset path and the CLI warns if the adapter folder is missing.
